@@ -87,6 +87,8 @@ Typical issues with the clients leading to these issues include communicating wi
 
 #### How? 
 
+`sum by(principal_id, kafka_id) (rate(confluent_kafka_server_request_count{type=~"JoinGroup|LeaveGroup"}[10m]))`
+
 It is difficult to define a specific critical value for alerting for this metric, since larger-scale, or repeated events, such as starting or restarting of applications can lead to false-positive alerts.
 
 To make this metric actionable, correlation wtih other deployment parameters need to be made, e.g. when were applications deployed, redeployed, restarted. 
@@ -108,7 +110,10 @@ Unexecpectedly high rate of metadata requests should be investigated to ensure c
 
 #### How
 
+`sum by(type, principal_id, kafka_id, ) (confluent_kafka_server_request_count{type="Metadata"})`
+
 No specific clitical value for alerting can be reaonably defined across clients. A relatively high rate of metadata requests should be verifies with the clients implementing team. Some clients may implement a liveness probe that works in terms of metadata requests.
+
 
 ### -- Offset commit rate
 
@@ -126,7 +131,9 @@ One reason for an high and unwarrented rate of offset commits is commiitting off
 
 #### How
 
-There is no on-size-fits-all rate to fit all clients. We recommend comparing rates between clients and over time and clarify client-specific requirements.   
+`sum by(principal_id, kafka_id) (rate(confluent_kafka_server_request_count{type="OffsetCommit"}[10m]))`
+
+There is no one-size-fits-all rate to fit all clients. We recommend comparing rates between clients and over time and clarify client-specific requirements.
 
 
 ### -- Heartbeats per minute
@@ -140,6 +147,9 @@ Heartbeats are sent by consumers as one of the two liveness criteria, in additio
 When client configuration is modified, we sometimes see heartbeat intervals being reduced, perhaps for even faster failure detection. This is generally not recommended, as it puts an additional load on the cluster. While small for any individual client, this load can add up to significant one in a shared cluster.  
 
 #### How
+
+`sum by(type, principal_id, kafka_id) (rate(confluent_kafka_server_request_count{type="Heartbeat"}[1m]))`
+
 
 ### -- Bytes per request estimate
 
@@ -155,7 +165,8 @@ Applications producing a high number of small requests might increase the cluste
 
 `sum(rate(confluent_kafka_server_received_bytes[5m])) / on(kafka_id) sum(rate(confluent_kafka_server_request_count{type="Produce"}[5m]))`
 
-Please note the use of `confluent_kafka_server_received_bytes` and the limitation to Produce requests here. This is the actual data produced, contrary to teh more general `confluent_kafka_server_request_bytes`, which takes in the account all requests. 
+Please note the use of `confluent_kafka_server_received_bytes` and the limitation to Produce requests here. This is the actual data produced, contrary to the more general `confluent_kafka_server_request_bytes`, which takes in the account all requests. 
+
 
 ### -- Average record size estimate
 
@@ -163,13 +174,20 @@ Please note the use of `confluent_kafka_server_received_bytes` and the limitatio
 
 #### What
 
+This is a synthetic metric, created as a rate of bytes over the rate of records produced.
+
 #### Why 
+
+Identifying applications producing very large records may help in reducing cluster load. Very large records are rarely used in their entirely for processing. For large amount of binary data, patterns such as claim check are recommended instead.    
 
 #### How
 
-### -- Records per request estimate
+`sum by(kafka_id, topic) (rate(confluent_kafka_server_received_bytes[5m])) / sum by(kafka_id, topic) (rate(confluent_kafka_server_received_records[5m]))`
 
-`sum by(kafka_id) (rate(confluent_kafka_server_received_records[5m])) / on(kafka_id) sum by(kafka_id) (rate(confluent_kafka_server_request_count{type="Produce"}[5m]))`
+Please note the use of `confluent_kafka_server_received_bytes` and the limitation to Produce requests here. This is the actual data produced, contrary to the more general `confluent_kafka_server_request_bytes`, which takes in the account all requests. 
+
+
+### -- Records per produce request estimate
 
 #### What
 
@@ -181,7 +199,10 @@ Applications producing a low number of records per produce request might exhibit
 
 #### How
 
+`sum by(kafka_id) (rate(confluent_kafka_server_received_records[5m])) / on(kafka_id) sum by(kafka_id) (rate(confluent_kafka_server_request_count{type="Produce"}[5m]))`
+
 ## Client metrics
+
 
 ### -- Client failed authentication rate
 
@@ -197,10 +218,12 @@ Often, failed authentication is due to issues with credential provisioning, e.g.
 
 #### How
 
+`kafka_consumer_failed_authentication_rate`, `kafka_producer_failed_authentication_rate`, `kafka_admin_client_failed_authentication_rate`
+
 Short spikes can be disregarded, but longer (> 10 seconds), sustained failures should lead to a client being halted and the error investigated and addressed.
 
 
-### -- Record errors
+### -- Producer record errors
 
 #### What
 
@@ -227,7 +250,10 @@ Consumer groups are expected to rebalance rarely, when the consumer group resize
 
 #### How
 
+`kafka_consumer_coordinator_rebalance_rate_per_hour`
+
 Please note that the cooperative rebalance protocol for Kafka Streams may trigger probing rebalances while waiting for a task on the target instance to catch up, in order to prevent processing interruptions. Probing rebalances happen every 10 mintes by default, until a perfect balance has been achieved.  
+
 
 ### -- Producer compression rate
 
@@ -243,6 +269,8 @@ Using producer compression is generally recommended, as it can lead to a more ef
 Tracking compression rate can help discover clients not using compression, as well as, in combination with other metrics, clients using compression suboptimally, e.g. with small batches.  
 
 #### How
+
+`kafka_producer_compression_rate_avg`
 
 Compression efficiency is higly dependent on the algorithm used. Different algorithms, such as gzip, lz4 etc, make different trade-offs in terms of CPU usage and compression effectiveness. 
 
@@ -261,14 +289,15 @@ When clients reach their alotted throuhgput quotas, they are required to wait be
 
 #### Why
 
-Clients being throttled demonstates a non-alignment between client and cluster management. 
+Clients being throttled demonstrates a non-alignment between client and cluster management. Throttled clients may genuinely need to be able to transfer more data, or may be required to consult the central/managing team for alignment.
 
 #### How
 
-Clients w
+`kafka_consumer_fetch_manager_fetch_throttle_time_avg`, `kafka_consumer_fetch_manager_fetch_throttle_time_max`, `kafka_producer_produce_throttle_time_avg`, `kafka_producer_produce_throttle_time_max`
 
-A central management of client quotas, with low defaults and is recommended for shared clusters. The more broad the sharing, the more restricitve the quota handling should be in terms of both limits and process. 
+A central management of client quotas with low defaults is recommended for shared clusters. The more broad the sharing, the more restricitve the quota handling should be in terms of both limits and process. 
 
+Clients needing higher quotas are required to pass through a coordination process, creating an alignment of expectations and recoding the design decisions along with the quotas.   
 
 ### -- Failed stream threads
 
@@ -280,7 +309,7 @@ If an error in a Kafka Steams thread was not handled, it will cause the thread t
 
 #### Why 
 
-#### How
+Failed stream threads can lead to reblances, reprocessing, reduced rate of processing and should be investigated. 
 
 
 ### -- Task punctuate latency
@@ -301,8 +330,6 @@ Punctuation (periodic tasks) happens on the main thread in Kafka Streams. If it 
 
 Please restrict the execution time of each punctuation, resuming on the next iteration. If this leads to furhter complications (e.g.the state store being analyzed too rarely), this issue may warrant a redesign of the application, or at least the partitioning.     
 
-### --- 
-
 
 ## Alerting & Actions
 
@@ -313,6 +340,8 @@ The dashboards do not provide any alerting capabilities. However, exemplary visu
 
 * Introduce alerting integration
 
-* 
+* Add further client metrics
+
+* Add further screenshots
 
 
