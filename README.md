@@ -71,7 +71,7 @@ For most of the follwing metrics, it is not possible to define a unified value t
 
 ## Confluent Cloud metrics
 
-### -- LeaveGroup & JoinGroup requests
+### -- LeaveGroup & JoinGroup request rate
 
 #### What? 
 
@@ -110,9 +110,6 @@ Unexecpectedly high rate of metadata requests should be investigated to ensure c
 
 No specific clitical value for alerting can be reaonably defined across clients. A relatively high rate of metadata requests should be verifies with the clients implementing team. Some clients may implement a liveness probe that works in terms of metadata requests.
 
-
-
-
 ### -- Offset commit rate
 
 #### What
@@ -135,33 +132,61 @@ There is no on-size-fits-all rate to fit all clients. We recommend comparing rat
 
 ### -- Heartbeats per minute
 
+#### What
+
+#### Why 
+
+#### How
+
 ### -- Bytes per request estimate
+
+#### What
+
+#### Why 
+
+#### How
 
 ### -- Average record size estimate
 
 ![alt text](resources/avg.record.size.png)
 
+#### What
+
+#### Why 
+
+#### How
+
 ### -- Records per request estimate
 
-
-## Client metrics
-
-### -- Failed authentication rate
+`sum by(kafka_id) (rate(confluent_kafka_server_received_records[5m])) / on(kafka_id) sum by(kafka_id) (rate(confluent_kafka_server_request_count{type="Produce"}[5m]))`
 
 #### What
 
+This is a synthetic metric, created as a rate of records over the rate of produce requests.
+
+#### Why 
+
+Applications producing a low number of records per produce request might exhibit suboptimal batching and compression, additionally increasing the cluster load through a high number of small produce reqeusts.  
+
+#### How
+
+## Client metrics
+
+### -- Client failed authentication rate
+
+#### What
+
+Aggregates consumer, producer and admin client metrics.
 
 #### Why 
 
 A client failing authentication should be a rare, intermittent occurrence. A client consistently failing authentication generates unnecessary load on the cluster without performing any useful work. 
 
-Often, failed authentication is due to issues with credential provisining. 
+Often, failed authentication is due to issues with credential provisioning, e.g. keys being rotated. 
 
 #### How
 
-Short spikes can be disregarded, but longer (> 20 seconds), sustained failures should lead to a client being halted and teh eroro investigated.
-
-
+Short spikes can be disregarded, but longer (> 10 seconds), sustained failures should lead to a client being halted and the error investigated and addressed.
 
 
 ### -- Record errors
@@ -172,34 +197,39 @@ Records which were not written to the target topic.
 
 #### Why 
 
-Data loss can be a significant source of errors 
+Record errors can lead to data loss, and data loss can be a significant source of business errors.  
 
 #### How
 
-Any number above zero should be investigated, except in cases where in
+Any number above zero should be investigated, except in cases where data loss is acceptable (e.g. low-value sensors).
 
 
 ### -- Consumer rebalances per hour
 
 #### What
 
-This is the client-side variant of LeaveGroup/JoinGroup request monitoring, directly measuring the rebalances, responsible for triggering the LEaverGroup/JoinGroup requests.  
+This is the client-side variant of LeaveGroup/JoinGroup request monitoring, directly measuring the rebalances, responsible for triggering the LeaveGroup/JoinGroup requests.  
 
 #### Why 
 
-Consumer groups are expected to rebalance rarely, when the consumer group resizes. Consumer groups rebalancing frequently or constantly can mean a problem in the processing or the data. Rebalancing consumers will reprocess data without making significant progress, potentially even generating a constent stream of duplicatas downstream. 
+Consumer groups are expected to rebalance rarely, when the consumer group resizes. Consumer groups rebalancing frequently or constantly can mean a problem in the processing or the data. Rebalancing consumers will reprocess data without making significant progress, potentially even generating a constent stream of duplicates downstream. 
 
 #### How
+
+Please note that the cooperative rebalance protocol for Kafka Streams may trigger probing rebalances while waiting for a task on the target instance to catch up, in order to prevent processing interruptions. Probing rebalances happen every 10 mintes by default, until a perfect balance has been achieved.  
 
 ### -- Producer compression rate
 
 #### What
 
 A direct measure of If an error in a Kafka Steams thread was not handled, it will cause the thread to fail. 
+Without compression, the rate is constantly at 1.0.
 
 #### Why 
 
 Using producer compression is generally recommended, as it can lead to a more efficient use of resources on the cluster as well as in downstream clients. 
+
+Tracking compression rate can help discover clients not using compression, as well as, in combination with other metrics, clients using compression suboptimally, e.g. with small batches.  
 
 #### How
 
@@ -207,7 +237,7 @@ Compression efficiency is higly dependent on the algorithm used. Different algor
 
 Even more than the algorithm, the data influences the effectiveness of compression. Textual data compresses very well, while binary data may not.
 
-Compression happens on batch level, so 
+Compression happens on batch level, so larger batches 
 
 Please note, that despite higher compression rates with textual messages, binary encoding with compression are generally still significantly more space-efficient.  
 
