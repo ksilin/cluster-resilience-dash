@@ -1,4 +1,4 @@
-## Resilience dash
+## Resilience dashboard
 
 This project provides examples of dashboards for improving the resileince and usage patterns of shared resources, such as Confluent Cloud clusters. 
 
@@ -92,7 +92,9 @@ It is difficult to define a specific critical value for alerting for this metric
 To make this metric actionable, correlation wtih other deployment parameters need to be made, e.g. when were applications deployed, redeployed, restarted. 
 
 
-### -- Metadata requests
+### -- Metadata requests per minute
+
+![alt text](resources/metadata.requests.png)
 
 #### What
 
@@ -136,6 +138,8 @@ There is no on-size-fits-all rate to fit all clients. We recommend comparing rat
 ### -- Bytes per request estimate
 
 ### -- Average record size estimate
+
+![alt text](resources/avg.record.size.png)
 
 ### -- Records per request estimate
 
