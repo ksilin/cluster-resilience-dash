@@ -167,7 +167,7 @@
           "useBackend": false
         }
       ],
-      "title": "Clinet failed authentication rate",
+      "title": "Client failed authentication rate",
       "transformations": [],
       "type": "timeseries"
     },
@@ -1485,7 +1485,7 @@
           "useBackend": false
         }
       ],
-      "title": "Records per request",
+      "title": "Records per produce request",
       "transformations": [],
       "type": "timeseries"
     },
@@ -1587,7 +1587,7 @@
           "useBackend": false
         }
       ],
-      "title": "Metadata requests",
+      "title": "Metadata requests per minute",
       "transformations": [],
       "type": "timeseries"
     }
@@ -1599,13 +1599,13 @@
     "list": []
   },
   "time": {
-    "from": "now-30m",
+    "from": "now-15m",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "resilience-relevant metrics",
   "uid": "d6c915de-bf0f-4c3b-982c-dbc59ab08be0",
-  "version": 16,
+  "version": 18,
   "weekStart": ""
 }
