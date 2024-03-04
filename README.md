@@ -124,7 +124,6 @@ Each offset commit generates additional cluster load.
 
 One reason for an high and unwarrented rate of offset commits is commiitting offsets after every processed record. While this approach can reduce teh cumber of reprocessed records in case of an error (the usual number of reprocessed records woulb be `max.poll.records`), this also constantly generates a load on the cluster.   
 
-
 #### How
 
 There is no on-size-fits-all rate to fit all clients. We recommend comparing rates between clients and over time and clarify client-specific requirements.   
@@ -134,7 +133,11 @@ There is no on-size-fits-all rate to fit all clients. We recommend comparing rat
 
 #### What
 
+Heartbeats are sent by consumers as one of the two liveness criteria, in addition to the actual polling for records. While polling for records tends to have rather high timeouts on order of minutes, hearbeat is used to detect failed consumers quickly, typically after 10 seconds or 3 missed heartbeats. 
+
 #### Why 
+
+When client configuration is modified, we sometimes see heartbeat intervals being reduced, perhaps for even faster failure detection. This is generally not recommended, as it puts an additional load on the cluster. While small for any individual client, this load can add up to significant one in a shared cluster.  
 
 #### How
 
@@ -142,9 +145,17 @@ There is no on-size-fits-all rate to fit all clients. We recommend comparing rat
 
 #### What
 
+This is a synthetic metric, created as a rate of incoming bytes over the rate of produce requests.
+
 #### Why 
 
+Applications producing a high number of small requests might increase the cluster load. On frequent small requests, it is recommended to review the client batch settigns.
+
 #### How
+
+`sum(rate(confluent_kafka_server_received_bytes[5m])) / on(kafka_id) sum(rate(confluent_kafka_server_request_count{type="Produce"}[5m]))`
+
+Please note the use of `confluent_kafka_server_received_bytes` and the limitation to Produce requests here. This is the actual data produced, contrary to teh more general `confluent_kafka_server_request_bytes`, which takes in the account all requests. 
 
 ### -- Average record size estimate
 
@@ -166,7 +177,7 @@ This is a synthetic metric, created as a rate of records over the rate of produc
 
 #### Why 
 
-Applications producing a low number of records per produce request might exhibit suboptimal batching and compression, additionally increasing the cluster load through a high number of small produce reqeusts.  
+Applications producing a low number of records per produce request might exhibit suboptimal batching and compression, additionally increasing the cluster load through a high number of small produce requests.  
 
 #### How
 
