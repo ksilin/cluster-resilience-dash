@@ -75,7 +75,8 @@ For most of the follwing metrics, it is not possible to define a unified value t
 
 #### What? 
 
-These requests are emitted by clients on consumer group changes. This happens both on voluntary and involuntary changes. Example for voluntary changes are starting, stopping or resizing an application. Involuntary changes 
+These requests are emitted by clients on consumer group membership changes. This happens both on voluntary and involuntary changes. Examples for voluntary changes are starting, stopping or resizing an application. Involuntary changes are usually failures - in the application itself or in the connectivity between the application and the cluster.  
+
 
 #### Why
 
@@ -91,8 +92,15 @@ Typical issues with the clients leading to these issues include communicating wi
 
 It is difficult to define a specific critical value for alerting for this metric, since larger-scale, or repeated events, such as starting or restarting of applications can lead to false-positive alerts.
 
-To make this metric actionable, correlation wtih other deployment parameters need to be made, e.g. when were applications deployed, redeployed, restarted. 
+To make this metric actionable, correlation with other deployment parameters need to be made, e.g. when were applications deployed, redeployed, restarted. 
 
+It is difficult to be sure, whether a number of `JoinGroup`requests can be traced back to a genuine issue. Some hints may be found below. 
+
+* Client error metrics increase before the JoinGroup request can indicate a genuine problem. 
+* The burst itself is short and not repeated. Errors often result in periodic rebalances, or continuous, long rebalances. 
+* can these JoinGroup requests be correlated with a consumer group member being added to the group without existing IDs being removed? This may be explained by scaling up a consumer group, or deploying a new applicaiton or a new version of an existing application.   
+* are deployment schedules known, or ad-hoc deployments communicated? JoinGroup request bursts correlating with these events are probably benign. 
+* analyzing the logs of the clients can help understand what happened.
 
 ### -- Metadata requests per minute
 
